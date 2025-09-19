@@ -1,288 +1,197 @@
 // File: Main.java
-// Intentionally smelly for static analyzers: Long Method, God Class, Data Class,
-// Feature Envy, Long Parameter List, Switch Statement.
+// Designed to trigger: Feature Envy, God Class, Data Class, Long Method,
+// Long Parameter List, and Switch Statement in common smell detectors.
 
-import java.io.*;
-import java.time.LocalDate;
 import java.util.*;
+import java.time.LocalDate;
 
 public class Main {
 
-    // ========================= GOD CLASS =========================
-    // Does everything: "controller", fake persistence, calculations, validation & reporting.
-    public static class HotelController {
-        private final Map<String, Booking> cache = new HashMap<>();
-        private final List<String> logs = new ArrayList<>();
-        private String dbUrl = "jdbc:mysql://localhost/hotel";
-        private String httpEndpoint = "https://api.example.com";
-        private String lastUserMessage = "";
+    // ----------------------------- GOD CLASS -----------------------------
+    // Many responsibilities, many fields, complex methods, low cohesion.
+    static class MegaManager {
+        // lots of state that different methods use disjointly (hurts cohesion)
+        private int counterA, counterB, counterC, counterD, counterE;
+        private String apiUrl = "https://api.example.com";
+        private String db = "jdbc:mysql://localhost/db";
+        private List<String> logs = new ArrayList<>();
+        private Map<String, RecordData> cache = new HashMap<>();
+        private Random rnd = new Random();
 
-        // ================== LONG PARAMETER LIST (14 params) ==================
-        public Booking reserve(
-                String customerName,
-                String phone,
-                String address,
-                String country,
-                String city,
-                String roomType,
-                int nights,
-                boolean breakfast,
-                boolean pickup,
-                double basePrice,
-                double taxRate,
-                String coupon,
-                int adults,
-                int children
+        // ------------------ LONG PARAMETER LIST (12 params) ------------------
+        public void register(
+                String id, String name, String phone, String email, String city, String country,
+                String type, int level, boolean vip, double balance, double tax, String coupon
         ) {
-            Customer c = new Customer();
-            c.setName(customerName);
-            c.setPhone(phone);
-            c.setAddress(address);
-            c.setCountry(country);
-            c.setCity(city);
-            c.setLoyaltyPoints( (adults + children) * 3 ); // silly
-
-            Booking b = new Booking();
-            b.setCustomer(c);
-            b.setRoomType(roomType);
-            b.setNights(nights);
-            b.setBreakfast(breakfast);
-            b.setAirportPickup(pickup);
-            b.setBasePrice(basePrice);
-            b.setTaxRate(taxRate);
-            b.setCouponCode(coupon);
-            b.setAdults(adults);
-            b.setChildren(children);
-            b.setCreatedAt(LocalDate.now());
-
-            String key = customerName + "-" + System.nanoTime();
-            cache.put(key, b);
-            logs.add("reserve() -> " + key);
-            return b;
+            RecordData r = new RecordData();
+            r.setId(id);
+            r.setName(name);
+            r.setPhone(phone);
+            r.setEmail(email);
+            r.setCity(city);
+            r.setCountry(country);
+            r.setType(type);
+            r.setLevel(level);
+            r.setVip(vip);
+            r.setBalance(balance);
+            r.setTax(tax);
+            r.setCoupon(coupon);
+            r.setCreated(LocalDate.now());
+            cache.put(id, r);
+            counterA++; // touches a different field than other methods
         }
 
-        // ====================== SWITCH STATEMENT ======================
-        public double applyStrategy(String strategy, double amount) {
-            switch (strategy) {
-                case "WEEKEND": return amount * 1.12;
+        // ------------------------ SWITCH STATEMENT --------------------------
+        public double applyPolicy(String policy, double amount) {
+            switch (policy) {
                 case "WEEKDAY": return amount;
+                case "WEEKEND": return amount * 1.10;
                 case "LOYALTY": return amount * 0.90;
-                case "LAST_MINUTE": return amount * 0.78;
                 case "BLACK_FRIDAY": return amount * 0.60;
+                case "LAST_MINUTE": return amount * 0.80;
                 default: return amount;
             }
         }
 
-        // ======================= LONG METHOD =========================
-        // Many steps, branches, loops, text building, dumb IO — on purpose.
-        public String generateHugeOperationsReport(String anyLocalFile) {
+        // -------------------------- LONG METHOD -----------------------------
+        // Inflate cyclomatic complexity (WMC) and length; touch mostly counterB.
+        public String generateHugeReport() {
             StringBuilder sb = new StringBuilder();
-            sb.append("=== Ops Report ===\n");
-            sb.append("DB=").append(dbUrl).append("\n");
-            sb.append("HTTP=").append(httpEndpoint).append("\n");
-            sb.append("Cache=").append(cache.size()).append("\n");
+            sb.append("=== Report ===\n");
+            sb.append("API=").append(apiUrl).append(" DB=").append(db).append("\n");
+            sb.append("CacheSize=").append(cache.size()).append("\n");
 
-            // 1) read arbitrary local file to inflate length
-            int lines = 0;
-            try (BufferedReader br = new BufferedReader(new FileReader(anyLocalFile))) {
-                String ln;
-                while ((ln = br.readLine()) != null) {
-                    lines++;
-                    if (ln.contains("ERROR")) logs.add("ERR:" + ln);
-                    else if (ln.contains("WARN")) logs.add("WARN:" + ln);
-                    else if (ln.trim().isEmpty()) { /* noop */ }
-                    // useless processing to make it longer
-                    if (ln.length() % 2 == 0) lastUserMessage = ln;
-                }
-            } catch (IOException e) {
-                logs.add("IO:" + e.getMessage());
-            }
-            sb.append("Scanned: ").append(anyLocalFile).append(" lines=").append(lines).append("\n");
+            // lots of decisions/loops to push WMC high
+            int big = 0;
+            for (Map.Entry<String, RecordData> e : cache.entrySet()) {
+                RecordData r = e.getValue();
+                double p = PriceUtil.featureEnvyPrice(r, new CustomerInfo("FR", "Lille", r.getLevel())); // FEATURE ENVY inside PriceUtil
+                if (p > 700) { logs.add("HIGH:" + r.getId()); counterB++; }
+                else if (p > 300) { logs.add("MID:" + r.getId()); counterB += 2; }
+                else { logs.add("LOW:" + r.getId()); counterB += 3; }
 
-            // 2) aggregate per room type
-            Map<String, Integer> roomCounts = new HashMap<>();
-            Map<String, Double> roomRevenue = new HashMap<>();
-            PriceUtil util = new PriceUtil();
-
-            for (Map.Entry<String, Booking> entry : cache.entrySet()) {
-                Booking b = entry.getValue();
-                double price = util.computeFinalPrice(b.getCustomer(), b);  // FEATURE ENVY uses many getters
-                String rt = b.getRoomType();
-
-                // another switch, just to be loud
-                switch (rt) {
-                    case "SUITE":
-                    case "DELUXE":
-                    case "EXECUTIVE":
-                        price = applyStrategy("WEEKEND", price);
-                        break;
-                    case "DOUBLE":
-                    case "SINGLE":
-                        price = applyStrategy("WEEKDAY", price);
-                        break;
-                    default:
-                        price = applyStrategy("LOYALTY", price);
-                }
-
-                roomCounts.put(rt, roomCounts.getOrDefault(rt, 0) + 1);
-                roomRevenue.put(rt, roomRevenue.getOrDefault(rt, 0.0) + price);
-
-                // some redundant log work
-                if (price > 500) {
-                    logs.add("HIGH:" + rt + ":" + price);
-                } else if (price < 50) {
-                    logs.add("LOW:" + rt + ":" + price);
-                } else {
-                    logs.add("NORM:" + rt + ":" + price);
-                }
+                // more branches
+                String t = r.getType();
+                if ("SUITE".equals(t)) big += 5;
+                else if ("DELUXE".equals(t)) big += 3;
+                else if ("DOUBLE".equals(t)) big += 2;
+                else big++;
+                // use switch again
+                p = applyPolicy(r.isVip() ? "LOYALTY" : "WEEKDAY", p);
+                if (rnd.nextBoolean()) { big += (int)p % 7; } else { big -= (int)p % 5; }
             }
 
-            // 3) dump stats
-            sb.append("-- Room Counts --\n");
-            for (String rt : new TreeSet<>(roomCounts.keySet())) {
-                sb.append(rt).append(" -> ").append(roomCounts.get(rt)).append("\n");
-            }
-            sb.append("-- Room Revenue --\n");
-            for (String rt : new TreeSet<>(roomRevenue.keySet())) {
-                sb.append(rt).append(" -> ").append(String.format(Locale.US, "%.2f", roomRevenue.get(rt))).append("\n");
-            }
+            // dump logs
+            int start = Math.max(0, logs.size() - 15);
+            for (int i = start; i < logs.size(); i++) sb.append("LOG ").append(i).append(": ").append(logs.get(i)).append("\n");
 
-            // 4) show last N logs
-            sb.append("-- Recent logs --\n");
-            int start = Math.max(0, logs.size() - 10);
-            for (int i = start; i < logs.size(); i++) {
-                sb.append("LOG ").append(i).append(": ").append(logs.get(i)).append("\n");
+            // extra loops to keep it long
+            int acc = 0;
+            for (int i = 0; i < 100; i++) {
+                acc += i % 4;
+                if (acc % 9 == 0) sb.append('.');
             }
-
-            // 5) do more arbitrary formatting, iterations, and branches
-            List<String> warnings = new ArrayList<>();
-            for (Map.Entry<String, Integer> e : roomCounts.entrySet()) {
-                if (e.getValue() > 3) warnings.add("Popular: " + e.getKey());
-                else if (e.getValue() == 0) warnings.add("No bookings: " + e.getKey());
-                else warnings.add("OK: " + e.getKey());
-            }
-            Collections.sort(warnings);
-            sb.append("-- Notes --\n");
-            for (String w : warnings) sb.append(w).append("\n");
-
-            // 6) fake export steps
-            sb.append("Export=OK\n");
-            sb.append("Done at ").append(LocalDate.now()).append("\n");
+            sb.append("\nacc=").append(acc).append(" big=").append(big).append("\n");
             return sb.toString();
         }
-    }
 
-    // ========================= DATA CLASSES =========================
-    public static class Booking {
-        private Customer customer;
-        private String roomType;
-        private int nights;
-        private boolean breakfast;
-        private boolean airportPickup;
-        private double basePrice;
-        private double taxRate;
-        private String couponCode;
-        private int adults;
-        private int children;
-        private LocalDate createdAt;
-
-        public Customer getCustomer() { return customer; }
-        public void setCustomer(Customer customer) { this.customer = customer; }
-        public String getRoomType() { return roomType; }
-        public void setRoomType(String roomType) { this.roomType = roomType; }
-        public int getNights() { return nights; }
-        public void setNights(int nights) { this.nights = nights; }
-        public boolean isBreakfast() { return breakfast; }
-        public void setBreakfast(boolean breakfast) { this.breakfast = breakfast; }
-        public boolean isAirportPickup() { return airportPickup; }
-        public void setAirportPickup(boolean airportPickup) { this.airportPickup = airportPickup; }
-        public double getBasePrice() { return basePrice; }
-        public void setBasePrice(double basePrice) { this.basePrice = basePrice; }
-        public double getTaxRate() { return taxRate; }
-        public void setTaxRate(double taxRate) { this.taxRate = taxRate; }
-        public String getCouponCode() { return couponCode; }
-        public void setCouponCode(String couponCode) { this.couponCode = couponCode; }
-        public int getAdults() { return adults; }
-        public void setAdults(int adults) { this.adults = adults; }
-        public int getChildren() { return children; }
-        public void setChildren(int children) { this.children = children; }
-        public LocalDate getCreatedAt() { return createdAt; }
-        public void setCreatedAt(LocalDate createdAt) { this.createdAt = createdAt; }
-    }
-
-    public static class Customer {
-        private String name;
-        private String phone;
-        private String address;
-        private String country;
-        private String city;
-        private int loyaltyPoints;
-
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getPhone() { return phone; }
-        public void setPhone(String phone) { this.phone = phone; }
-        public String getAddress() { return address; }
-        public void setAddress(String address) { this.address = address; }
-        public String getCountry() { return country; }
-        public void setCountry(String country) { this.country = country; }
-        public String getCity() { return city; }
-        public void setCity(String city) { this.city = city; }
-        public int getLoyaltyPoints() { return loyaltyPoints; }
-        public void setLoyaltyPoints(int loyaltyPoints) { this.loyaltyPoints = loyaltyPoints; }
-    }
-
-    // ========================= FEATURE ENVY =========================
-    // Should live inside Booking/Customer but sits here and uses many getters.
-    public static class PriceUtil {
-        public double computeFinalPrice(Customer c, Booking b) {
-            double price = b.getBasePrice();
-
-            // room-based surcharges
-            if ("SUITE".equals(b.getRoomType())) price += 40 * b.getNights();
-            else if ("DELUXE".equals(b.getRoomType())) price += 25 * b.getNights();
-            else if ("EXECUTIVE".equals(b.getRoomType())) price += 15 * b.getNights();
-
-            // options
-            if (b.isBreakfast()) price += 12.5 * Math.max(1, b.getAdults());
-            if (b.isAirportPickup()) price += 30;
-
-            // coupon
-            String code = b.getCouponCode();
-            if (code != null && !code.isBlank()) {
-                if (code.startsWith("VIP")) price *= 0.85;
-                else if (code.startsWith("LOYAL")) price *= 0.90;
+        // Another unrelated method touching other fields (hurts cohesion/TCC)
+        public void rotateKeys() {
+            // only counterC/counterD here
+            for (int i = 0; i < 10; i++) {
+                counterC += i;
+                if (i % 2 == 0) counterD++;
+                else counterD += 2;
             }
+        }
 
-            // “loyalty discount” from Customer (cross-object data grabbing)
-            if (c.getLoyaltyPoints() > 50) price *= 0.95;
-
-            // tax
-            price = price + (price * b.getTaxRate());
-
-            // silly location tweak (pulling more from Customer)
-            if ("France".equalsIgnoreCase(c.getCountry()) && "Lille".equalsIgnoreCase(c.getCity())) {
-                price += 1.23;
-            }
-
-            return price;
+        // Another unrelated method touching different field (hurts TCC)
+        public boolean ping() {
+            counterE++;
+            return apiUrl.startsWith("https");
         }
     }
 
-    // ============================== Demo ==============================
+    // ----------------------------- DATA CLASSES -----------------------------
+    // Only fields + accessors. No behavior.
+    static class RecordData {
+        private String id, name, phone, email, city, country, type, coupon;
+        private int level;
+        private boolean vip;
+        private double balance, tax;
+        private LocalDate created;
+
+        public String getId(){return id;} public void setId(String v){id=v;}
+        public String getName(){return name;} public void setName(String v){name=v;}
+        public String getPhone(){return phone;} public void setPhone(String v){phone=v;}
+        public String getEmail(){return email;} public void setEmail(String v){email=v;}
+        public String getCity(){return city;} public void setCity(String v){city=v;}
+        public String getCountry(){return country;} public void setCountry(String v){country=v;}
+        public String getType(){return type;} public void setType(String v){type=v;}
+        public String getCoupon(){return coupon;} public void setCoupon(String v){coupon=v;}
+        public int getLevel(){return level;} public void setLevel(int v){level=v;}
+        public boolean isVip(){return vip;} public void setVip(boolean v){vip=v;}
+        public double getBalance(){return balance;} public void setBalance(double v){balance=v;}
+        public double getTax(){return tax;} public void setTax(double v){tax=v;}
+        public LocalDate getCreated(){return created;} public void setCreated(LocalDate v){created=v;}
+    }
+
+    static class CustomerInfo {
+        private String country, city;
+        private int loyaltyLevel;
+        public CustomerInfo(String country, String city, int loyaltyLevel) {
+            this.country = country; this.city = city; this.loyaltyLevel = loyaltyLevel;
+        }
+        public String getCountry(){return country;}
+        public String getCity(){return city;}
+        public int getLoyaltyLevel(){return loyaltyLevel;}
+    }
+
+    // ----------------------------- FEATURE ENVY -----------------------------
+    // This method intentionally accesses MANY foreign getters (high ATFD)
+    // from TWO different foreign classes (FDP >= 2) and almost no local fields.
+    static class PriceUtil {
+        public static double featureEnvyPrice(RecordData r, CustomerInfo c) {
+            // no local fields; everything is taken from foreign objects:
+            double p = r.getBalance();
+            // access a lot of foreign attributes repeatedly to push ATFD high
+            if ("SUITE".equals(r.getType())) p += 40 * r.getLevel();
+            if ("DELUXE".equals(r.getType())) p += 25 * r.getLevel();
+            if (r.isVip()) p *= 0.95;
+            String coupon = r.getCoupon();
+            if (coupon != null && !coupon.isBlank()) {
+                if (coupon.startsWith("VIP")) p *= 0.85;
+                else if (coupon.startsWith("LOYAL")) p *= 0.90;
+            }
+            p = p + p * r.getTax();
+            // Touch plenty of CustomerInfo getters too:
+            if ("France".equalsIgnoreCase(c.getCountry()) && "Lille".equalsIgnoreCase(c.getCity())) p += 1.23;
+            if (c.getLoyaltyLevel() > 3) p *= 0.98;
+            // more foreign accesses to ensure ATFD is large
+            if ("Paris".equalsIgnoreCase(c.getCity())) p += 2.0;
+            if ("Tunisia".equalsIgnoreCase(c.getCountry())) p += 0.5;
+            if (r.getEmail() != null && r.getEmail().endsWith(".fr")) p += 0.1;
+            if (r.getPhone() != null && r.getPhone().startsWith("06")) p += 0.1;
+            if (r.getCity() != null && r.getCity().length() > 3) p += 0.1;
+            if (r.getCountry() != null && r.getCountry().length() > 2) p += 0.1;
+            return p;
+        }
+    }
+
+    // -------------------------------- Demo ---------------------------------
     public static void main(String[] args) {
-        HotelController ctrl = new HotelController();
+        MegaManager mm = new MegaManager();
 
-        // build some data through the LONG PARAMETER LIST
-        Booking b1 = ctrl.reserve("Alice","0600000001","1 Rue A","France","Lille",
-                "SUITE",3,true,false,150,0.2,"VIP2025",2,0);
-        Booking b2 = ctrl.reserve("Bob","0600000002","2 Rue B","France","Lille",
-                "DOUBLE",1,false,true,80,0.2,"",1,1);
-        Booking b3 = ctrl.reserve("Charlie","0600000003","3 Rue C","France","Paris",
-                "DELUXE",2,true,true,120,0.2,"LOYAL10",2,2);
+        // a few entries
+        mm.register("u1","Alice","0600","a@x.fr","Lille","France","SUITE",5,true,300,0.2,"VIP10");
+        mm.register("u2","Bob","0601","b@x.fr","Paris","France","DELUXE",3,false,150,0.2,"");
+        mm.register("u3","Chloe","0602","c@x.com","Tunis","Tunisia","DOUBLE",2,true,120,0.2,"LOYAL5");
 
-        // call LONG METHOD (pass any readable file to avoid exception)
-        String report = ctrl.generateHugeOperationsReport("README.md");
-        System.out.println(report);
+        // increase WMC / reduce cohesion by calling unrelated methods
+        mm.rotateKeys();
+        mm.ping();
+
+        // trigger LONG METHOD + SWITCH
+        System.out.println(mm.generateHugeReport());
     }
 }
