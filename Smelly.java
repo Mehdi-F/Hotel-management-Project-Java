@@ -6,7 +6,7 @@
 
 import java.util.*;
 
-public class Main {
+public class Smelly {
 
     // ---------------------- FOREIGN DATA HOLDERS ----------------------
     // public fields on purpose (to raise ATFD when accessed from elsewhere)
